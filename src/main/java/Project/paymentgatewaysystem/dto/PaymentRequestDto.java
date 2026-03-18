@@ -1,0 +1,18 @@
+package Project.paymentgatewaysystem.dto;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class PaymentRequestDto {
+    @NotNull(message = "Order ID is required")
+    private Long orderId;
+    @NotBlank(message = "prymentmethod is required")
+    private String paymentMethod;
+}
