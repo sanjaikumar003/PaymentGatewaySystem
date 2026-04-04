@@ -10,6 +10,7 @@ import Project.paymentgatewaysystem.entity.Payment;
 import Project.paymentgatewaysystem.exception.DuplicateResourceException;
 import Project.paymentgatewaysystem.exception.InvalidStateException;
 import Project.paymentgatewaysystem.exception.ResourceNotFoundException;
+import Project.paymentgatewaysystem.exception.UnauthorizedException;
 import Project.paymentgatewaysystem.repository.MerchantUserRepository;
 import Project.paymentgatewaysystem.repository.OrderRepository;
 import Project.paymentgatewaysystem.repository.PaymentRepository;
@@ -37,7 +38,7 @@ public class PaymentServiceImpl implements PaymentService {
         Order order = orderRepository.findById((request.getOrderId()))
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + request.getOrderId()));
         if(!order.getMerchant().getMerchantId().equals(user.getMerchant().getMerchantId())){
-            throw new RuntimeException("Access denied");
+            throw new UnauthorizedException("Access denied");
         }
         if(order.getStatus()!=OrderStatus.CREATED){
             throw new InvalidStateException("Order is not payable:" +  order.getStatus());
@@ -68,7 +69,7 @@ public class PaymentServiceImpl implements PaymentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Payment not found"));
         if (!payment.getOrder().getMerchant().getMerchantId()
                 .equals(user.getMerchant().getMerchantId())) {
-            throw new RuntimeException("Access denied");
+            throw new UnauthorizedException("Access denied");
         }
 
         return toDto(payment);
@@ -79,7 +80,7 @@ public class PaymentServiceImpl implements PaymentService {
         Payment payment = paymentRepository.findByOrder_OrderId(orderId)
                 .orElseThrow(()-> new ResourceNotFoundException("No payment found"));
         if(!payment.getOrder().getMerchant().getMerchantId().equals(user.getMerchant().getMerchantId())){
-            throw new RuntimeException("Access denied");
+            throw new UnauthorizedException("Access denied");
         }
         return toDto(payment);
     }
@@ -94,7 +95,7 @@ public class PaymentServiceImpl implements PaymentService {
 
         if (!payment.getOrder().getMerchant().getMerchantId()
                 .equals(user.getMerchant().getMerchantId())) {
-            throw new InvalidStateException("Access denied");
+            throw new UnauthorizedException("Access denied");
         }
 
         if (payment.getStatus() != PaymentStatus.FAILED) {

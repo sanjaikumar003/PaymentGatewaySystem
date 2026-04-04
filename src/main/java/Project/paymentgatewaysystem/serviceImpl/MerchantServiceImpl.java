@@ -84,7 +84,7 @@ public class MerchantServiceImpl implements MerchantService {
         );
         log.info("Login attempt: {}",email);
         Objects.requireNonNull(request.getPassword(), "Password required");
-        log.info("Login attempt: {}, email");
+        log.info("Login attempt: {}", email);
         MerchantUser user = merchantUserRepository.findByEmail(email).orElseThrow(()->{log.warn("Login failed for {}",email);
             return new BadCredentialsException("Invalid credentials");
         });

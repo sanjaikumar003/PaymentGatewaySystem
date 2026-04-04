@@ -5,7 +5,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -23,14 +22,17 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleInvalidState(InvalidStateException ex) {
         return buildResponse(HttpStatus.CONFLICT, ex.getMessage());
     }
-
+    @ExceptionHandler(UnauthorizedException.class)
+    public ResponseEntity<Map<String, Object>> handleUnauthorized(UnauthorizedException ex) {
+        return buildResponse(HttpStatus.FORBIDDEN, ex.getMessage());
+    }
     @ExceptionHandler(DuplicateResourceException.class)
     public ResponseEntity<Map<String, Object>> handleDuplicate(DuplicateResourceException ex) {
         return buildResponse(HttpStatus.CONFLICT, ex.getMessage());
     }
     @ExceptionHandler(org.springframework.security.authentication.BadCredentialsException.class)
     public ResponseEntity<Map<String, Object>> handleBadCredentials(
-            org.springframework.security.authentication.BadCredentialsException ex) {
+            org.springframework.security.authentication.BadCredentialsException ignored) {
         return buildResponse(HttpStatus.UNAUTHORIZED, "Invalid credentials");
     }
 

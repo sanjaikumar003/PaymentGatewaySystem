@@ -11,6 +11,7 @@ import Project.paymentgatewaysystem.entity.Payment;
 import Project.paymentgatewaysystem.entity.Transaction;
 import Project.paymentgatewaysystem.exception.InvalidStateException;
 import Project.paymentgatewaysystem.exception.ResourceNotFoundException;
+import Project.paymentgatewaysystem.exception.UnauthorizedException;
 import Project.paymentgatewaysystem.repository.MerchantUserRepository;
 import Project.paymentgatewaysystem.repository.OrderRepository;
 import Project.paymentgatewaysystem.repository.PaymentRepository;
@@ -43,7 +44,7 @@ public class TransactionServiceImpl implements TransactionService {
          Payment payment = paymentRepository.findById(request.getPaymentId())
                  .orElseThrow(()-> new ResourceNotFoundException("Payment not found: " + request.getPaymentId()));
          if(!payment.getOrder().getMerchant().getMerchantId().equals(user.getMerchant().getMerchantId())){
-             throw new InvalidStateException("Access denied");
+             throw new UnauthorizedException("Access denied");
          }
          if(payment.getStatus() == PaymentStatus.SUCCESS){
              throw new InvalidStateException("Payment already completed: " + payment.getStatus());
@@ -83,7 +84,7 @@ public class TransactionServiceImpl implements TransactionService {
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Transaction not found: " + transactionId));
         if(!tx.getPayment().getOrder().getMerchant().getMerchantId().equals(user.getMerchant().getMerchantId())){
-            throw new RuntimeException("Access denied");
+            throw new UnauthorizedException("Access denied");
         }
         return toDto(tx);
     }

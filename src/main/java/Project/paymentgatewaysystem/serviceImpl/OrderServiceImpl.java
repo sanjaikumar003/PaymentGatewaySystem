@@ -7,6 +7,7 @@ import Project.paymentgatewaysystem.entity.Merchant;
 import Project.paymentgatewaysystem.entity.MerchantUser;
 import Project.paymentgatewaysystem.entity.Order;
 import Project.paymentgatewaysystem.exception.ResourceNotFoundException;
+import Project.paymentgatewaysystem.exception.UnauthorizedException;
 import Project.paymentgatewaysystem.repository.MerchantUserRepository;
 import Project.paymentgatewaysystem.repository.OrderRepository;
 import Project.paymentgatewaysystem.service.OrderService;
@@ -85,7 +86,7 @@ public class OrderServiceImpl implements OrderService {
         if (!order.getMerchant().getMerchantId()
                 .equals(user.getMerchant().getMerchantId())) {
 
-            throw new RuntimeException("Access denied");
+            throw new UnauthorizedException("Access denied");
         }
 
         return toDto(order);
