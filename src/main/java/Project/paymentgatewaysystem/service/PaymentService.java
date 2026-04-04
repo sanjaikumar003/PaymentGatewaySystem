@@ -4,7 +4,7 @@ import Project.paymentgatewaysystem.dto.PaymentRequestDto;
 import Project.paymentgatewaysystem.dto.PaymentResponseDto;
 
 public interface PaymentService {
-    PaymentResponseDto createPayment(PaymentRequestDto request);
-    PaymentResponseDto getById(Long paymentId);
-    PaymentResponseDto getByOrderId(Long orderId);
+    PaymentResponseDto createPayment(String email,PaymentRequestDto request);
+    PaymentResponseDto getById(String email,Long paymentId);
+    PaymentResponseDto getByOrderId(String email,Long orderId);
 }

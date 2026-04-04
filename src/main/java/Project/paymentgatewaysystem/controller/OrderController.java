@@ -17,31 +17,23 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/orders")
+@RequestMapping("/api/v1/orders")
 @RequiredArgsConstructor
 public class OrderController {
     private final OrderService orderService;
-    private final MerchantUserRepository merchantUserRepository;
     @PostMapping
     public ResponseEntity<OrderResponseDto> createOrder(@Valid @RequestBody OrderRequestDto request, @AuthenticationPrincipal UserDetails userDetails){
-        Long merchantId=resolveMerchantId(userDetails);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(orderService.createOrder(merchantId, request));
+                .body(orderService.createOrder(userDetails.getUsername(),request));
     }
     @GetMapping("/{orderId}")
-    public ResponseEntity<OrderResponseDto> getById(@PathVariable Long orderId) {
-        return ResponseEntity.ok(orderService.getById(orderId));
+    public ResponseEntity<OrderResponseDto> getById(@PathVariable Long orderId, @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(orderService.getById(userDetails.getUsername(),orderId));
     }
     @GetMapping
     public ResponseEntity<List<OrderResponseDto>> getMyOrders(
             @AuthenticationPrincipal UserDetails userDetails) {
-        Long merchantId = resolveMerchantId(userDetails);
-        return ResponseEntity.ok(orderService.getByMerchant(merchantId));
+        return ResponseEntity.ok(orderService.getByMerchant(userDetails.getUsername()));
     }
-    private Long resolveMerchantId(UserDetails userDetails) {
-        MerchantUser user = merchantUserRepository
-                .findByEmail(userDetails.getUsername())
-                .orElseThrow(() -> new RuntimeException("Authenticated user not found"));
-        return user.getMerchant().getMerchantId();
-    }
+
 }

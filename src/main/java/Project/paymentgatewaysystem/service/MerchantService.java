@@ -7,6 +7,6 @@ import Project.paymentgatewaysystem.dto.MerchantResponseDto;
 public interface MerchantService {
     MerchantResponseDto register(MerchantRequestDto request);
     LoginResponseDto login (LoginRequestDto request);
-    MerchantResponseDto getById(Long merchantId);
+    MerchantResponseDto getByEmail(String email);
 
 }

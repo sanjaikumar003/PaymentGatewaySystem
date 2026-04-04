@@ -8,5 +8,5 @@ import java.util.Optional;
 
 public interface OrderRepository extends JpaRepository<Order, Long> {
     List<Order> findByMerchant_MerchantId(Long merchantId);
-    Optional<Order> findByIdempotencyKey(String idempotencyKey);
+    Optional<Order> findByIdempotencyKeyAndMerchant_MerchantId(String idempotencyKey,Long merchantId);
 }

@@ -7,12 +7,14 @@ import Project.paymentgatewaysystem.dto.MerchantRequestDto;
 import Project.paymentgatewaysystem.dto.MerchantResponseDto;
 import Project.paymentgatewaysystem.entity.Merchant;
 import Project.paymentgatewaysystem.entity.MerchantUser;
+import Project.paymentgatewaysystem.exception.DuplicateResourceException;
 import Project.paymentgatewaysystem.exception.ResourceNotFoundException;
 import Project.paymentgatewaysystem.repository.MerchantRepository;
 import Project.paymentgatewaysystem.repository.MerchantUserRepository;
 import Project.paymentgatewaysystem.security.JwtUtil;
 import Project.paymentgatewaysystem.service.MerchantService;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,7 +22,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.UUID;
-
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class MerchantServiceImpl implements MerchantService {
@@ -32,31 +34,33 @@ public class MerchantServiceImpl implements MerchantService {
     @Override
     @Transactional
     public MerchantResponseDto register(MerchantRequestDto request){
+        String email= request.getEmail().toLowerCase();
+        log.info("Registering merchant: {}",email);
 
-        if(merchantRepository.existsByEmail(request.getEmail())){
-            throw new RuntimeException("Email already registered: " + request.getEmail());
+        if(merchantRepository.existsByEmail(email)){
+            throw new DuplicateResourceException("Email already registered: " + request.getEmail());
         }
-        String rewApiKey = UUID.randomUUID().toString();
+        String rawApiKey = UUID.randomUUID().toString();
         String rawSecretKey = UUID.randomUUID().toString();
 
         Merchant merchant = new Merchant();
         merchant.setName(request.getName());
-        merchant.setEmail(request.getEmail());
-        merchant.setApiKey((rewApiKey));
+        merchant.setEmail(email);
+        merchant.setApiKey(passwordEncoder.encode(rawApiKey));
         merchant.setSecretKey(passwordEncoder.encode(rawSecretKey));
         merchant.setStatus(MerchantStatus.ACTIVE);
 
         Merchant saved = merchantRepository.save(merchant);
         MerchantUser user= new MerchantUser();
-        user.setEmail(request.getEmail());
+        user.setEmail(email);
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setMerchant(saved);
-        MerchantUser createUser = merchantUserRepository.save(user);
+        merchantUserRepository.save(user);
         return new MerchantResponseDto(
                 saved.getMerchantId(),
                 saved.getName(),
                 saved.getEmail(),
-                saved.getApiKey(),
+                rawApiKey,
                 saved.getStatus(),
                 rawSecretKey,
                 saved.getCreatedAt()
@@ -65,27 +69,34 @@ public class MerchantServiceImpl implements MerchantService {
 
     @Override
     public LoginResponseDto login(LoginRequestDto request){
-        MerchantUser user = merchantUserRepository.findByEmail(request.getEmail()).orElseThrow(()->new RuntimeException("Invalid credentials"));
+        String email= request.getEmail().toLowerCase();
+        log.info("Login attempt: {}",email);
+        MerchantUser user = merchantUserRepository.findByEmail(email).orElseThrow(()->new BadCredentialsException("Invalid credentials"));
         if(!passwordEncoder.matches(request.getPassword(),user.getPasswordHash())){
-            throw new BadCredentialsException("Inavalid credentials");
+            throw new BadCredentialsException("Invalid credentials");
+        }
+        if(user.getMerchant().getStatus()!=MerchantStatus.ACTIVE){
+            throw new BadCredentialsException("Merchant inactive");
         }
         String token = jwtUtil.generateToken(user.getEmail());
         return new LoginResponseDto(token, user.getEmail(),
                 user.getMerchant().getMerchantId());
+
     }
     @Override
-    public MerchantResponseDto getById(Long merchantId) {
-        Merchant Id = merchantRepository.findById(merchantId)
+    public MerchantResponseDto getByEmail(String email) {
+        MerchantUser user = merchantUserRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "Merchant not found: " + merchantId));
+                        "Merchant not found: " + email));
+        Merchant merchant =user.getMerchant();
         return new MerchantResponseDto(
-                Id.getMerchantId(),
-                Id.getName(),
-                Id.getEmail(),
-                Id.getApiKey(),
-                Id.getStatus(),
+                merchant.getMerchantId(),
+                merchant.getName(),
+                merchant.getEmail(),
+                merchant.getApiKey(),
+                merchant.getStatus(),
                 null,
-                Id.getCreatedAt()
+                merchant.getCreatedAt()
         );
     }
 

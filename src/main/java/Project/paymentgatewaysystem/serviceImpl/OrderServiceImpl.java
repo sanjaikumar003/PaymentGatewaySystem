@@ -4,9 +4,10 @@ import Project.paymentgatewaysystem.constants.OrderStatus;
 import Project.paymentgatewaysystem.dto.OrderRequestDto;
 import Project.paymentgatewaysystem.dto.OrderResponseDto;
 import Project.paymentgatewaysystem.entity.Merchant;
+import Project.paymentgatewaysystem.entity.MerchantUser;
 import Project.paymentgatewaysystem.entity.Order;
 import Project.paymentgatewaysystem.exception.ResourceNotFoundException;
-import Project.paymentgatewaysystem.repository.MerchantRepository;
+import Project.paymentgatewaysystem.repository.MerchantUserRepository;
 import Project.paymentgatewaysystem.repository.OrderRepository;
 import Project.paymentgatewaysystem.service.OrderService;
 import lombok.RequiredArgsConstructor;
@@ -17,26 +18,27 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-import static org.hibernate.Hibernate.map;
 
 @Service
 @RequiredArgsConstructor
 public class OrderServiceImpl implements OrderService {
 
     private final OrderRepository orderRepository;
-    private final MerchantRepository merchantRepository;
+    private final MerchantUserRepository merchantUserRepository;
 
     @Override
     @Transactional
-    public OrderResponseDto createOrder(Long merchantId, OrderRequestDto request) {
-        Merchant merchant = merchantRepository.findById(merchantId)
+    public OrderResponseDto createOrder(String email, OrderRequestDto request) {
+        MerchantUser user = merchantUserRepository.findByEmail(email.trim().toLowerCase())
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "Merchant not found: " + merchantId));
+                        "Merchant not found: " + email));
+        Merchant merchant=user.getMerchant();
         String ikey =(request.getIdempotencyKey() != null && !request.getIdempotencyKey().isBlank())
                 ? request.getIdempotencyKey()
                 :UUID.randomUUID().toString();
 
-        return orderRepository.findByIdempotencyKey(ikey)
+        return orderRepository
+                .findByIdempotencyKeyAndMerchant_MerchantId(ikey, merchant.getMerchantId())
                 .map(this::toDto)
                 .orElseGet(()->{
                     Order order = new Order();
@@ -50,12 +52,28 @@ public class OrderServiceImpl implements OrderService {
                 });
     }
     @Override
-    public OrderResponseDto getById (Long orderId){
-        return toDto(orderRepository.findById(orderId)
-                .orElseThrow(()-> new ResourceNotFoundException("Order not found: " +orderId)));
+    public OrderResponseDto getById( String email,Long orderId) {
+
+        MerchantUser user = merchantUserRepository.findByEmail(email.trim().toLowerCase())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
+
+        if (!order.getMerchant().getMerchantId()
+                .equals(user.getMerchant().getMerchantId())) {
+
+            throw new RuntimeException("Access denied");
+        }
+
+        return toDto(order);
     }
     @Override
-    public  List<OrderResponseDto> getByMerchant(Long merchantId){
+    public  List<OrderResponseDto> getByMerchant(String email){
+        MerchantUser user = merchantUserRepository.findByEmail(email.trim().toLowerCase())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        Long merchantId = user.getMerchant().getMerchantId();
         return orderRepository.findByMerchant_MerchantId(merchantId)
                 .stream()
                 .map(this::toDto)

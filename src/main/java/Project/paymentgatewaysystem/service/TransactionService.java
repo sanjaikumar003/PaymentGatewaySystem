@@ -6,7 +6,7 @@ import Project.paymentgatewaysystem.dto.TransactionResponseDto;
 import java.util.List;
 
 public interface TransactionService {
-    TransactionResponseDto processTransaction(TransactionRequestDto request);
-    TransactionResponseDto getById(Long transactionId);
-    List<TransactionResponseDto> getByPaymentId(Long paymentId);
+    TransactionResponseDto processTransaction(String email,TransactionRequestDto request);
+    TransactionResponseDto getById(String email,Long transactionId);
+    List<TransactionResponseDto> getByPaymentId(String email,Long paymentId);
 }

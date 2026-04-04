@@ -6,7 +6,7 @@ import Project.paymentgatewaysystem.dto.OrderResponseDto;
 import java.util.List;
 
 public interface OrderService {
-    OrderResponseDto createOrder(Long merchantId, OrderRequestDto request);
-    OrderResponseDto getById(Long orderId);
-    List<OrderResponseDto> getByMerchant(Long merchantId);
+    OrderResponseDto createOrder(String email, OrderRequestDto request);
+    OrderResponseDto getById(String email,Long orderId);
+    List<OrderResponseDto> getByMerchant(String email);
 }
