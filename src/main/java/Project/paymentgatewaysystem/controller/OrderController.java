@@ -8,6 +8,7 @@ import Project.paymentgatewaysystem.repository.MerchantUserRepository;
 import Project.paymentgatewaysystem.service.OrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -15,7 +16,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-
+@Slf4j
 @RestController
 @RequestMapping("/api/v1/orders")
 @RequiredArgsConstructor
@@ -23,16 +24,37 @@ public class OrderController {
     private final OrderService orderService;
     @PostMapping
     public ResponseEntity<OrderResponseDto> createOrder(@Valid @RequestBody OrderRequestDto request, @AuthenticationPrincipal UserDetails userDetails){
+
+        if (userDetails == null) {
+            log.warn("Unauthorized order creation attempt");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        log.info("Creating order for user: {}", userDetails.getUsername());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(orderService.createOrder(userDetails.getUsername(),request));
     }
     @GetMapping("/{orderId}")
     public ResponseEntity<OrderResponseDto> getById(@PathVariable Long orderId, @AuthenticationPrincipal UserDetails userDetails) {
+
+        if (userDetails == null) {
+            log.warn("Unauthorized access to order {}", orderId);
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        log.info("Fetching order {} for user {}", orderId, userDetails.getUsername());
         return ResponseEntity.ok(orderService.getById(userDetails.getUsername(),orderId));
     }
     @GetMapping
     public ResponseEntity<List<OrderResponseDto>> getMyOrders(
             @AuthenticationPrincipal UserDetails userDetails) {
+
+        if (userDetails == null) {
+            log.warn("Unauthorized access to orders list");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        log.info("Fetching all orders for user {}", userDetails.getUsername());
+
         return ResponseEntity.ok(orderService.getByMerchant(userDetails.getUsername()));
     }
 

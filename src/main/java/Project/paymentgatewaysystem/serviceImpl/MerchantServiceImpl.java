@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.util.Objects;
 import java.util.UUID;
 @Slf4j
 @Service
@@ -31,14 +32,22 @@ public class MerchantServiceImpl implements MerchantService {
     private final BCryptPasswordEncoder passwordEncoder;
     private final MerchantUserRepository merchantUserRepository;
     private final JwtUtil jwtUtil;
+    private String normalize(String email) {
+        return email.trim().toLowerCase();
+    }
     @Override
     @Transactional
     public MerchantResponseDto register(MerchantRequestDto request){
-        String email= request.getEmail().toLowerCase();
+
+        String email = normalize(
+                Objects.requireNonNull(request.getEmail(), "Email required")
+        );
+
+        Objects.requireNonNull(request.getPassword(), "Password required");
         log.info("Registering merchant: {}",email);
 
-        if(merchantRepository.existsByEmail(email)){
-            throw new DuplicateResourceException("Email already registered: " + request.getEmail());
+        if(merchantUserRepository.existsByEmail(email)){
+            throw new DuplicateResourceException("Email already registered: " + email);
         }
         String rawApiKey = UUID.randomUUID().toString();
         String rawSecretKey = UUID.randomUUID().toString();
@@ -56,6 +65,7 @@ public class MerchantServiceImpl implements MerchantService {
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setMerchant(saved);
         merchantUserRepository.save(user);
+        log.info("Merchant created with ID: {}", saved.getMerchantId());
         return new MerchantResponseDto(
                 saved.getMerchantId(),
                 saved.getName(),
@@ -69,25 +79,34 @@ public class MerchantServiceImpl implements MerchantService {
 
     @Override
     public LoginResponseDto login(LoginRequestDto request){
-        String email= request.getEmail().toLowerCase();
+        String email = normalize(
+                Objects.requireNonNull(request.getEmail(), "Email required")
+        );
         log.info("Login attempt: {}",email);
-        MerchantUser user = merchantUserRepository.findByEmail(email).orElseThrow(()->new BadCredentialsException("Invalid credentials"));
+        Objects.requireNonNull(request.getPassword(), "Password required");
+        log.info("Login attempt: {}, email");
+        MerchantUser user = merchantUserRepository.findByEmail(email).orElseThrow(()->{log.warn("Login failed for {}",email);
+            return new BadCredentialsException("Invalid credentials");
+        });
         if(!passwordEncoder.matches(request.getPassword(),user.getPasswordHash())){
+            log.warn("Invalid password for {}", email);
             throw new BadCredentialsException("Invalid credentials");
         }
         if(user.getMerchant().getStatus()!=MerchantStatus.ACTIVE){
             throw new BadCredentialsException("Merchant inactive");
         }
         String token = jwtUtil.generateToken(user.getEmail());
-        return new LoginResponseDto(token, user.getEmail(),
+        return new LoginResponseDto(token,
+                user.getEmail(),
                 user.getMerchant().getMerchantId());
 
     }
     @Override
     public MerchantResponseDto getByEmail(String email) {
+        String normalizedEmail = normalize(email);
         MerchantUser user = merchantUserRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "Merchant not found: " + email));
+                        "Merchant not found: " + normalizedEmail));
         Merchant merchant =user.getMerchant();
         return new MerchantResponseDto(
                 merchant.getMerchantId(),

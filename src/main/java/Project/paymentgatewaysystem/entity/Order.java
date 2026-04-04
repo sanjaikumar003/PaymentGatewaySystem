@@ -16,7 +16,12 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-@Table(name="orders")
+@Table(name="orders",uniqueConstraints = {
+        @UniqueConstraint(
+                name = "unique_idempotency_per_merchant",
+                columnNames = {"idempotency_key", "merchant_id"}
+        )
+})
 public class Order {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

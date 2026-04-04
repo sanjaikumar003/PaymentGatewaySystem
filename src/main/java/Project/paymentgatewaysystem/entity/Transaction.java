@@ -14,7 +14,13 @@ import java.time.LocalDateTime;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-@Table(name="transactions")
+@Table(name="transactions",uniqueConstraints = {
+        @UniqueConstraint(
+                name = "unique_tx_per_payment_key",
+                columnNames = {"payment_id", "idempotency_key"}
+        )
+}
+)
 public class Transaction {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

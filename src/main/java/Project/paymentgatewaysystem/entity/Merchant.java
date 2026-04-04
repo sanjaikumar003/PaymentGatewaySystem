@@ -14,7 +14,9 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Table(name="merchants")
+@Table(name="merchants", uniqueConstraints = {
+        @UniqueConstraint(name = "unique_merchant_email", columnNames = "email")
+})
 public class Merchant {
 
     @Id
@@ -24,7 +26,7 @@ public class Merchant {
     private String name;
     @Column(unique = true,nullable = false)
     private String email;
-    @Column(nullable = false,unique = true)
+    @Column(nullable = false)
     private String apiKey;
     @Column(nullable = false)
     private String secretKey;

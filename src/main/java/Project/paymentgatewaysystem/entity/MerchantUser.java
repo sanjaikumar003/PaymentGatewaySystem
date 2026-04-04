@@ -14,7 +14,11 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Table(name = "merchant_users")
+@Table(name = "merchant_users", uniqueConstraints = {
+        @UniqueConstraint(name = "unique_email", columnNames = "email")
+}
+)
+
 public class MerchantUser {
 
     @Id

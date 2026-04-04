@@ -17,12 +17,13 @@ import Project.paymentgatewaysystem.repository.PaymentRepository;
 import Project.paymentgatewaysystem.repository.TransactionRepository;
 import Project.paymentgatewaysystem.service.TransactionService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
-
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class TransactionServiceImpl implements TransactionService {
@@ -31,20 +32,28 @@ public class TransactionServiceImpl implements TransactionService {
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
     private  final MerchantUserRepository merchantUserRepository;
-
+    private MerchantUser getUser(String email) {
+        return merchantUserRepository.findByEmail(email.trim().toLowerCase())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+    }
     @Override
     @Transactional
     public TransactionResponseDto processTransaction(String email,TransactionRequestDto request) {
-        MerchantUser user = merchantUserRepository.findByEmail(email.trim().toLowerCase())
-                .orElseThrow(()->new ResourceNotFoundException("User not found"));
+        MerchantUser user = getUser(email);
          Payment payment = paymentRepository.findById(request.getPaymentId())
                  .orElseThrow(()-> new ResourceNotFoundException("Payment not found: " + request.getPaymentId()));
          if(!payment.getOrder().getMerchant().getMerchantId().equals(user.getMerchant().getMerchantId())){
              throw new InvalidStateException("Access denied");
          }
-         if(payment.getStatus() != PaymentStatus.PENDING){
-             throw new InvalidStateException("Payment cannot be process: " + payment.getStatus());
+         if(payment.getStatus() == PaymentStatus.SUCCESS){
+             throw new InvalidStateException("Payment already completed: " + payment.getStatus());
          }
+
+        if (payment.getStatus() != PaymentStatus.PENDING &&
+                payment.getStatus() != PaymentStatus.FAILED) {
+            throw new InvalidStateException("Invalid payment state");
+        }
+
         Order order = payment.getOrder();
 
 
@@ -63,12 +72,13 @@ public class TransactionServiceImpl implements TransactionService {
 
          order.setStatus(success ? OrderStatus.PAID : OrderStatus.FAILED);
          orderRepository.save(order);
-         return toDto(saved);
+        log.info("Transaction {} processed with status {}", saved.getTransactionId(), saved.getStatus());
+
+        return toDto(saved);
     }
     @Override
     public TransactionResponseDto getById(String email,Long transactionId) {
-        MerchantUser user = merchantUserRepository.findByEmail(email.trim().toLowerCase())
-                .orElseThrow(()->new ResourceNotFoundException("User not found"));
+        MerchantUser user = getUser(email);
         Transaction tx = transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Transaction not found: " + transactionId));

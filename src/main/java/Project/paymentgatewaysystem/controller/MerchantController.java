@@ -35,6 +35,12 @@ public class MerchantController {
 
     @GetMapping("/me")
     public ResponseEntity<MerchantResponseDto> getMyDetails(@AuthenticationPrincipal UserDetails userDetails) {
+        if (userDetails == null) {
+            log.warn("Unauthorized access to /me");
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        log.info("Fetching merchant details for {}", userDetails.getUsername());
+
         return ResponseEntity.ok(merchantService.getByEmail(userDetails.getUsername()));
     }
 }
