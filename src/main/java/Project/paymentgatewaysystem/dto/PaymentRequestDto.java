@@ -1,5 +1,6 @@
 package Project.paymentgatewaysystem.dto;
 
+import Project.paymentgatewaysystem.constants.PaymentMethod;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -14,5 +15,6 @@ public class PaymentRequestDto {
     @NotNull(message = "Order ID is required")
     private Long orderId;
     @NotBlank(message = "prymentmethod is required")
-    private String paymentMethod;
+    private PaymentMethod paymentMethod;
+    private String idempotencyKey;
 }

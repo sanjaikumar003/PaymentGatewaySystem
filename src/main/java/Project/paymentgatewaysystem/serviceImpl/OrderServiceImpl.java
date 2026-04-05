@@ -38,12 +38,12 @@ public class OrderServiceImpl implements OrderService {
     public OrderResponseDto createOrder(String email, OrderRequestDto request) {
         MerchantUser user = getUser(email);
         Merchant merchant=user.getMerchant();
-        BigDecimal amount = Objects.requireNonNull(request.getAmount(), "Amount required");
+        BigDecimal amount = Objects.requireNonNull(request.getAmount(), "Amount is required");
         if(amount.compareTo(BigDecimal.ZERO)<=0){
-            throw new IllegalArgumentException("Amount must be positive");
+            throw new IllegalArgumentException("Amount must be greater than zero");
         }
         String currency = Objects.requireNonNull(
-                request.getCurrency(), "Currency required"
+                request.getCurrency(), "Currency is required"
         ).toUpperCase();
 
         String ikey =(request.getIdempotencyKey() != null && !request.getIdempotencyKey().isBlank())

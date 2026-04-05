@@ -31,6 +31,8 @@ public class Transaction {
     private Payment payment;
     private BigDecimal amount;
     @Enumerated(EnumType.STRING)
+    @Column(unique = true)
+    private String idempotencyKey;
     @Column(nullable = false)
     private TransactionStatus status;
     @CreationTimestamp

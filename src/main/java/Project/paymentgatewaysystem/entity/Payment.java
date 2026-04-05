@@ -1,5 +1,6 @@
 package Project.paymentgatewaysystem.entity;
 
+import Project.paymentgatewaysystem.constants.PaymentMethod;
 import Project.paymentgatewaysystem.constants.PaymentStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -29,7 +30,9 @@ public class Payment {
     @JoinColumn(name = "order_id", nullable = false, unique = true)
     private Order order;
     @Column(nullable = false)
-    private String paymentMethod;
+    private PaymentMethod paymentMethod;
+    @Column(unique = true)
+    private String idempotencyKey;
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private PaymentStatus status;

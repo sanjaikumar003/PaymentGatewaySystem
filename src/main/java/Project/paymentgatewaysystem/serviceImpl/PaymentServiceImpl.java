@@ -1,6 +1,7 @@
 package Project.paymentgatewaysystem.serviceImpl;
 
 import Project.paymentgatewaysystem.constants.OrderStatus;
+import Project.paymentgatewaysystem.constants.PaymentMethod;
 import Project.paymentgatewaysystem.constants.PaymentStatus;
 import Project.paymentgatewaysystem.dto.PaymentRequestDto;
 import Project.paymentgatewaysystem.dto.PaymentResponseDto;
@@ -14,6 +15,7 @@ import Project.paymentgatewaysystem.exception.UnauthorizedException;
 import Project.paymentgatewaysystem.repository.MerchantUserRepository;
 import Project.paymentgatewaysystem.repository.OrderRepository;
 import Project.paymentgatewaysystem.repository.PaymentRepository;
+import Project.paymentgatewaysystem.service.PaymentGateWayService;
 import Project.paymentgatewaysystem.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +29,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
     private final MerchantUserRepository merchantUserRepository;
+    private final PaymentGateWayService gatewayService;
     private MerchantUser getUser(String email) {
         return merchantUserRepository.findByEmail(email.trim().toLowerCase())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
@@ -34,6 +37,12 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional
     public PaymentResponseDto createPayment(String email,PaymentRequestDto request) {
+        if(request.getOrderId()==null){
+            throw new IllegalArgumentException("OrderId is required");
+        }
+        if(request.getPaymentMethod()==null){
+            throw new IllegalArgumentException("Payment method is required");
+        }
         MerchantUser user = getUser(email);
         Order order = orderRepository.findById((request.getOrderId()))
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + request.getOrderId()));
@@ -43,24 +52,45 @@ public class PaymentServiceImpl implements PaymentService {
         if(order.getStatus()!=OrderStatus.CREATED){
             throw new InvalidStateException("Order is not payable:" +  order.getStatus());
         }
-        return paymentRepository.findByOrder_OrderId(order.getOrderId())
-                .map(this::toDto)
-                .orElseGet(() -> {
-                    Payment payment = new Payment();
-                    payment.setOrder(order);
-                    payment.setPaymentMethod(request.getPaymentMethod());
-                    payment.setStatus(PaymentStatus.PENDING);
+        if(request.getIdempotencyKey()!=null) {
+            Payment existingPayment = paymentRepository.findByIdempotencyKey(request.getIdempotencyKey()).orElse(null);
+            if (existingPayment != null) {
+                log.warn("Duplicate payment request: {}", request.getIdempotencyKey());
+                return toDto(existingPayment);
+            }
+        }
+        Payment payment=new Payment();
+        payment.setOrder(order);
+        payment.setPaymentMethod(request.getPaymentMethod());
+        payment.setStatus(PaymentStatus.PENDING);
+        payment.setIdempotencyKey(request.getIdempotencyKey());
+      payment = paymentRepository.save(payment);
+        log.info("Payment created (PENDING) for order {}", order.getOrderId());
+        if (request.getPaymentMethod()== PaymentMethod.COD) {
+            payment.setStatus(PaymentStatus.SUCCESS);
 
-                    log.info("Creating payment for order {}", order.getOrderId());
-                    try {
-                        return toDto(paymentRepository.save(payment));
-                    } catch (Exception ex) {
-                        Payment existing = paymentRepository
-                                .findByOrder_OrderId(order.getOrderId())
-                                .orElseThrow();
-                        return toDto(existing);
-                    }
-                });
+            order.setStatus(OrderStatus.CONFIRMED);
+            orderRepository.save(order);
+            paymentRepository.save(payment);
+            log.info("COD order confirmed {}", order.getOrderId());
+            return toDto(payment);
+
+        } else {
+            PaymentStatus result = gatewayService.process(request.getPaymentMethod());
+            payment.setStatus(result);
+            if (result == PaymentStatus.SUCCESS) {
+                order.setStatus(OrderStatus.PAID);
+                log.info("Payment success for order {}", order.getOrderId());
+            } else {
+                payment.setStatus(PaymentStatus.FAILED);
+                log.warn("Payment failed for order {}", order.getOrderId());
+            }
+            orderRepository.save(order);
+
+            Payment saved = paymentRepository.save(payment);
+
+            return toDto(saved);
+        }
     }
     @Override
     public PaymentResponseDto getById(String email,Long paymentId){
@@ -102,10 +132,16 @@ public class PaymentServiceImpl implements PaymentService {
             throw new InvalidStateException("Only failed payments can be retried");
         }
 
-        payment.setStatus(PaymentStatus.PENDING);
-
         log.info("Retrying payment {}", paymentId);
 
+        payment.setStatus(PaymentStatus.PENDING);
+        PaymentStatus result = gatewayService.process(payment.getPaymentMethod());
+        payment.setStatus(result);
+        if(result == PaymentStatus.SUCCESS) {
+            Order order = payment.getOrder();
+            order.setStatus(OrderStatus.PAID);
+            orderRepository.save(order);
+        }
         return toDto(paymentRepository.save(payment));
     }
 

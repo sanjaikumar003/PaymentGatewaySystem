@@ -1,6 +1,7 @@
 package Project.paymentgatewaysystem.serviceImpl;
 
 import Project.paymentgatewaysystem.constants.OrderStatus;
+import Project.paymentgatewaysystem.constants.PaymentMethod;
 import Project.paymentgatewaysystem.constants.PaymentStatus;
 import Project.paymentgatewaysystem.constants.TransactionStatus;
 import Project.paymentgatewaysystem.dto.TransactionRequestDto;
@@ -32,23 +33,35 @@ public class TransactionServiceImpl implements TransactionService {
     private final TransactionRepository transactionRepository;
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
-    private  final MerchantUserRepository merchantUserRepository;
+    private final MerchantUserRepository merchantUserRepository;
+
     private MerchantUser getUser(String email) {
         return merchantUserRepository.findByEmail(email.trim().toLowerCase())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
     }
+
     @Override
     @Transactional
-    public TransactionResponseDto processTransaction(String email,TransactionRequestDto request) {
+    public TransactionResponseDto processTransaction(String email, TransactionRequestDto request) {
         MerchantUser user = getUser(email);
-         Payment payment = paymentRepository.findById(request.getPaymentId())
-                 .orElseThrow(()-> new ResourceNotFoundException("Payment not found: " + request.getPaymentId()));
-         if(!payment.getOrder().getMerchant().getMerchantId().equals(user.getMerchant().getMerchantId())){
-             throw new UnauthorizedException("Access denied");
-         }
-         if(payment.getStatus() == PaymentStatus.SUCCESS){
-             throw new InvalidStateException("Payment already completed: " + payment.getStatus());
-         }
+        Payment payment = paymentRepository.findById(request.getPaymentId())
+                .orElseThrow(() -> new ResourceNotFoundException("Payment not found: " + request.getPaymentId()));
+        if (!payment.getOrder().getMerchant().getMerchantId().equals(user.getMerchant().getMerchantId())) {
+            throw new UnauthorizedException("Access denied");
+        }
+        if (request.getIdempotencyKey() != null) {
+            Transaction existing = transactionRepository
+                    .findByIdempotencyKey(request.getIdempotencyKey())
+                    .orElse(null);
+
+            if (existing != null) {
+                log.warn("Duplicate transaction request: {}", request.getIdempotencyKey());
+                return toDto(existing);
+            }
+        }
+        if (payment.getStatus() == PaymentStatus.SUCCESS) {
+            throw new InvalidStateException("Payment already completed: " + payment.getStatus());
+        }
 
         if (payment.getStatus() != PaymentStatus.PENDING &&
                 payment.getStatus() != PaymentStatus.FAILED) {
@@ -56,34 +69,38 @@ public class TransactionServiceImpl implements TransactionService {
         }
 
         Order order = payment.getOrder();
+        log.info("Processing transaction for payment {}", payment.getPaymentId());
+        Transaction transaction = new Transaction();
+        transaction.setPayment(payment);
+        transaction.setAmount(order.getAmount());
+        transaction.setStatus(TransactionStatus.PENDING);
+        transaction.setIdempotencyKey(request.getIdempotencyKey());
 
+        log.info("Transaction created (PENDING) for payment {}", payment.getPaymentId());
 
         boolean success = simulatePaymentProcessing(payment.getPaymentMethod());
-         TransactionStatus txStatus= success ? TransactionStatus.SUCCESS : TransactionStatus.FAILED;
-
-         Transaction transaction = new Transaction();
-         transaction.setPayment(payment);
-         transaction.setAmount(order.getAmount());
-         transaction.setStatus(txStatus);
-         Transaction saved = transactionRepository.save(transaction);
-
-         payment.setStatus(success ? PaymentStatus.SUCCESS : PaymentStatus.FAILED);
-         paymentRepository.save(payment);
+        transaction.setStatus(success ? TransactionStatus.SUCCESS : TransactionStatus.FAILED);
 
 
-         order.setStatus(success ? OrderStatus.PAID : OrderStatus.FAILED);
-         orderRepository.save(order);
-        log.info("Transaction {} processed with status {}", saved.getTransactionId(), saved.getStatus());
+        payment.setStatus(success ? PaymentStatus.SUCCESS : PaymentStatus.FAILED);
+        if (success) {
+            order.setStatus(OrderStatus.PAID);
+            orderRepository.save(order);
+        }
+        paymentRepository.save(payment);
+        transaction = transactionRepository.save(transaction);
+        log.info("Transaction {} processed with status {}", transaction.getTransactionId(), transaction.getStatus());
 
-        return toDto(saved);
+        return toDto(transaction);
     }
+
     @Override
-    public TransactionResponseDto getById(String email,Long transactionId) {
+    public TransactionResponseDto getById(String email, Long transactionId) {
         MerchantUser user = getUser(email);
         Transaction tx = transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Transaction not found: " + transactionId));
-        if(!tx.getPayment().getOrder().getMerchant().getMerchantId().equals(user.getMerchant().getMerchantId())){
+        if (!tx.getPayment().getOrder().getMerchant().getMerchantId().equals(user.getMerchant().getMerchantId())) {
             throw new UnauthorizedException("Access denied");
         }
         return toDto(tx);
@@ -91,24 +108,29 @@ public class TransactionServiceImpl implements TransactionService {
 
 
     @Override
-    public List<TransactionResponseDto> getByPaymentId(String email,Long paymentId) {
-        MerchantUser user = merchantUserRepository.findByEmail(email.trim().toLowerCase())
-                .orElseThrow(()->new ResourceNotFoundException("User not found"));
-        List<Transaction> transactions=transactionRepository.findByPayment_PaymentId(paymentId);
-        return transactions.stream()
-                .filter((tx->tx.getPayment().getOrder().getMerchant().getMerchantId().equals(user.getMerchant().getMerchantId())))
+    public List<TransactionResponseDto> getByPaymentId(String email, Long paymentId) {
+
+        MerchantUser user = getUser(email);
+
+        return transactionRepository.findByPayment_PaymentId(paymentId)
+                .stream()
+                .filter(tx -> tx.getPayment().getOrder().getMerchant()
+                        .getMerchantId().equals(user.getMerchant().getMerchantId()))
                 .map(this::toDto)
-                .collect(Collectors.toList());
+                .toList();
     }
-    private boolean simulatePaymentProcessing(String paymentMethod){
-        return ! "DECLINED".equalsIgnoreCase(paymentMethod);
+
+    private boolean simulatePaymentProcessing(PaymentMethod method) {
+        return Math.random() > 0.2;
     }
-    private TransactionResponseDto toDto(Transaction end){
+
+    private TransactionResponseDto toDto(Transaction end) {
         return new TransactionResponseDto(
                 end.getTransactionId(),
                 end.getPayment().getPaymentId(),
                 end.getPayment().getOrder().getOrderId(),
                 end.getAmount(),
+                end.getIdempotencyKey(),
                 end.getStatus(),
                 end.getCreatedAt()
         );

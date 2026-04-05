@@ -11,4 +11,5 @@ import lombok.NoArgsConstructor;
 public class TransactionRequestDto {
    @NotNull(message = "Payment Id is requird")
     private Long paymentId;
+    private String idempotencyKey;
 }

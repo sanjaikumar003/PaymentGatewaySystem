@@ -14,6 +14,7 @@ public class TransactionResponseDto {
     private Long paymentId;
     private Long orderId;
     private BigDecimal amount;
+    private String idempotencyKey;
     private TransactionStatus status;
     private LocalDateTime createdAt;
 

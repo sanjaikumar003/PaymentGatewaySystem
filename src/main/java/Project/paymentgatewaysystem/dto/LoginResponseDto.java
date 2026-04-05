@@ -10,7 +10,6 @@ import lombok.Setter;
 @AllArgsConstructor
 public class LoginResponseDto {
     private String token;
-    private String email;
-    private Long merchantId;
+
 
 }

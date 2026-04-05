@@ -1,5 +1,6 @@
 package Project.paymentgatewaysystem.dto;
 
+import Project.paymentgatewaysystem.constants.PaymentMethod;
 import Project.paymentgatewaysystem.constants.PaymentStatus;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -13,7 +14,7 @@ import java.time.LocalDateTime;
 public class PaymentResponseDto {
     private Long paymentId;
     private Long orderId;
-    private String paymentMethod;
+    private PaymentMethod paymentMethod;
     private PaymentStatus status;
     private LocalDateTime createdAt;
 }

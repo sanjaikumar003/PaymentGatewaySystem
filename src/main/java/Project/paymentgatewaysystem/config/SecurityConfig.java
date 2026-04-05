@@ -32,8 +32,8 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         // Public endpoints — registration and login
-                        .requestMatchers("/merchants/login").permitAll()
-                        .requestMatchers("/merchants/register").permitAll()
+                        .requestMatchers("/api/v1/merchants/register").permitAll()
+                        .requestMatchers("/api/v1/merchants/login").permitAll()
                         // Swagger UI
                         .requestMatchers(
                                 "/swagger-ui/**",

@@ -13,6 +13,7 @@ import Project.paymentgatewaysystem.repository.MerchantRepository;
 import Project.paymentgatewaysystem.repository.MerchantUserRepository;
 import Project.paymentgatewaysystem.security.JwtUtil;
 import Project.paymentgatewaysystem.service.MerchantService;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -44,7 +45,7 @@ public class MerchantServiceImpl implements MerchantService {
         );
 
         Objects.requireNonNull(request.getPassword(), "Password required");
-        log.info("Registering merchant: {}",email);
+        log.info("Registering merchant: {}", email);
 
         if(merchantUserRepository.existsByEmail(email)){
             throw new DuplicateResourceException("Email already registered: " + email);
@@ -64,7 +65,11 @@ public class MerchantServiceImpl implements MerchantService {
         user.setEmail(email);
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setMerchant(saved);
+        try{
         merchantUserRepository.save(user);
+        }catch (DataIntegrityViolationException ex){
+            throw new DuplicateResourceException("Email already registered: " + email);
+        }
         log.info("Merchant created with ID: {}", saved.getMerchantId());
         return new MerchantResponseDto(
                 saved.getMerchantId(),
@@ -82,8 +87,6 @@ public class MerchantServiceImpl implements MerchantService {
         String email = normalize(
                 Objects.requireNonNull(request.getEmail(), "Email required")
         );
-        log.info("Login attempt: {}",email);
-        Objects.requireNonNull(request.getPassword(), "Password required");
         log.info("Login attempt: {}", email);
         MerchantUser user = merchantUserRepository.findByEmail(email).orElseThrow(()->{log.warn("Login failed for {}",email);
             return new BadCredentialsException("Invalid credentials");
@@ -92,23 +95,25 @@ public class MerchantServiceImpl implements MerchantService {
             log.warn("Invalid password for {}", email);
             throw new BadCredentialsException("Invalid credentials");
         }
-        if(user.getMerchant().getStatus()!=MerchantStatus.ACTIVE){
-            throw new BadCredentialsException("Merchant inactive");
+        if(user.getMerchant()==null||user.getMerchant().getStatus()!=MerchantStatus.ACTIVE){
+            log.warn("Merchant inactive for {}", email);
+            throw new BadCredentialsException("Invalid credentials");
         }
         String token = jwtUtil.generateToken(user.getEmail());
-        return new LoginResponseDto(token,
-                user.getEmail(),
-                user.getMerchant().getMerchantId());
+        return new LoginResponseDto(
+                token
+        );
 
     }
     @Override
     public MerchantResponseDto getByEmail(String email) {
         String normalizedEmail = normalize(email);
-        MerchantUser user = merchantUserRepository.findByEmail(email)
+        MerchantUser user = merchantUserRepository.findByEmail(normalizedEmail)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Merchant not found: " + normalizedEmail));
         Merchant merchant =user.getMerchant();
         return new MerchantResponseDto(
+
                 merchant.getMerchantId(),
                 merchant.getName(),
                 merchant.getEmail(),
