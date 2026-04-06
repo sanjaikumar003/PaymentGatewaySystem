@@ -52,4 +52,20 @@ public class PaymentController {
         log.info("Fetching payment for order {} by user {}", orderId, userDetails.getUsername());
         return ResponseEntity.ok(paymentService.getByOrderId(userDetails.getUsername(),orderId));
     }
+    @PostMapping("/{paymentId}/retry")
+    public ResponseEntity<PaymentResponseDto> retryPayment(
+            @PathVariable Long paymentId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        if (userDetails == null) {
+            log.warn("Unauthorized retry attempt for payment {}", paymentId);
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
+        log.info("Retrying payment {} for user {}", paymentId, userDetails.getUsername());
+
+        return ResponseEntity.ok(
+                paymentService.retryPayment(userDetails.getUsername(), paymentId)
+        );
+    }
 }

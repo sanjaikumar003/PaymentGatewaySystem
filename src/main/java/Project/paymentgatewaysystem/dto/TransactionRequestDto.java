@@ -9,7 +9,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class TransactionRequestDto {
-   @NotNull(message = "Payment Id is requird")
+
+    @NotNull(message = "Payment ID is required")
     private Long paymentId;
+
     private String idempotencyKey;
 }

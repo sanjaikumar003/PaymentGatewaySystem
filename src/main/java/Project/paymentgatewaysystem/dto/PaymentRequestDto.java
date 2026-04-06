@@ -12,9 +12,12 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class PaymentRequestDto {
+
     @NotNull(message = "Order ID is required")
     private Long orderId;
-    @NotBlank(message = "prymentmethod is required")
+
+    @NotNull(message = "Payment method is required")
     private PaymentMethod paymentMethod;
+
     private String idempotencyKey;
 }

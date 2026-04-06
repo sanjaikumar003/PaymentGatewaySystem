@@ -30,9 +30,9 @@ public class Transaction {
     @JoinColumn(name = "payment_id")
     private Payment payment;
     private BigDecimal amount;
-    @Enumerated(EnumType.STRING)
     @Column(unique = true)
     private String idempotencyKey;
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private TransactionStatus status;
     @CreationTimestamp

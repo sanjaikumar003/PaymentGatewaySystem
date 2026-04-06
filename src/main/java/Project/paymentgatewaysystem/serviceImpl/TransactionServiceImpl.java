@@ -22,9 +22,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.util.List;
-import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -51,7 +49,7 @@ public class TransactionServiceImpl implements TransactionService {
         }
         if (request.getIdempotencyKey() != null) {
             Transaction existing = transactionRepository
-                    .findByIdempotencyKey(request.getIdempotencyKey())
+                    .findByPayment_PaymentIdAndIdempotencyKey(payment.getPaymentId(),request.getIdempotencyKey())
                     .orElse(null);
 
             if (existing != null) {
@@ -111,6 +109,13 @@ public class TransactionServiceImpl implements TransactionService {
     public List<TransactionResponseDto> getByPaymentId(String email, Long paymentId) {
 
         MerchantUser user = getUser(email);
+        List<Transaction> transactions = transactionRepository
+                .findByPayment_PaymentId(paymentId);
+
+        if (transactions.isEmpty()) {
+            throw new ResourceNotFoundException("No transactions found for payment: " + paymentId);
+        }
+
 
         return transactionRepository.findByPayment_PaymentId(paymentId)
                 .stream()

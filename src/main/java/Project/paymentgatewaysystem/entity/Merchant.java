@@ -30,7 +30,6 @@ public class Merchant {
     private String apiKey;
     @Column(nullable = false)
     private String secretKey;
-    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private MerchantStatus status;
 

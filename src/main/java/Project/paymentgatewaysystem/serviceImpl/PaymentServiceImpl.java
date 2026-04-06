@@ -15,7 +15,7 @@ import Project.paymentgatewaysystem.exception.UnauthorizedException;
 import Project.paymentgatewaysystem.repository.MerchantUserRepository;
 import Project.paymentgatewaysystem.repository.OrderRepository;
 import Project.paymentgatewaysystem.repository.PaymentRepository;
-import Project.paymentgatewaysystem.service.PaymentGateWayService;
+import Project.paymentgatewaysystem.service.PaymentGatewayService;
 import Project.paymentgatewaysystem.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,7 +29,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
     private final MerchantUserRepository merchantUserRepository;
-    private final PaymentGateWayService gatewayService;
+    private final PaymentGatewayService gatewayService;
     private MerchantUser getUser(String email) {
         return merchantUserRepository.findByEmail(email.trim().toLowerCase())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
@@ -49,48 +49,30 @@ public class PaymentServiceImpl implements PaymentService {
         if(!order.getMerchant().getMerchantId().equals(user.getMerchant().getMerchantId())){
             throw new UnauthorizedException("Access denied");
         }
-        if(order.getStatus()!=OrderStatus.CREATED){
-            throw new InvalidStateException("Order is not payable:" +  order.getStatus());
-        }
         if(request.getIdempotencyKey()!=null) {
-            Payment existingPayment = paymentRepository.findByIdempotencyKey(request.getIdempotencyKey()).orElse(null);
+            Payment existingPayment = paymentRepository.findByOrder_OrderIdAndIdempotencyKey(order.getOrderId(),request.getIdempotencyKey()).orElse(null);
             if (existingPayment != null) {
                 log.warn("Duplicate payment request: {}", request.getIdempotencyKey());
                 return toDto(existingPayment);
             }
+        }
+        if(order.getStatus()==OrderStatus.PAID){
+            throw new InvalidStateException("Order already paid:" +  order.getStatus());
+
         }
         Payment payment=new Payment();
         payment.setOrder(order);
         payment.setPaymentMethod(request.getPaymentMethod());
         payment.setStatus(PaymentStatus.PENDING);
         payment.setIdempotencyKey(request.getIdempotencyKey());
-      payment = paymentRepository.save(payment);
+        payment = paymentRepository.save(payment);
         log.info("Payment created (PENDING) for order {}", order.getOrderId());
         if (request.getPaymentMethod()== PaymentMethod.COD) {
             payment.setStatus(PaymentStatus.SUCCESS);
-
             order.setStatus(OrderStatus.CONFIRMED);
-            orderRepository.save(order);
-            paymentRepository.save(payment);
             log.info("COD order confirmed {}", order.getOrderId());
-            return toDto(payment);
-
-        } else {
-            PaymentStatus result = gatewayService.process(request.getPaymentMethod());
-            payment.setStatus(result);
-            if (result == PaymentStatus.SUCCESS) {
-                order.setStatus(OrderStatus.PAID);
-                log.info("Payment success for order {}", order.getOrderId());
-            } else {
-                payment.setStatus(PaymentStatus.FAILED);
-                log.warn("Payment failed for order {}", order.getOrderId());
-            }
-            orderRepository.save(order);
-
-            Payment saved = paymentRepository.save(payment);
-
-            return toDto(saved);
         }
+        return toDto(payment);
     }
     @Override
     public PaymentResponseDto getById(String email,Long paymentId){
