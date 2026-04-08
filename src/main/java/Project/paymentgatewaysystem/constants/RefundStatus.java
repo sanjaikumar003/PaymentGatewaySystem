@@ -1,8 +1,7 @@
 package Project.paymentgatewaysystem.constants;
 
-public enum TransactionStatus {
+public enum RefundStatus {
+    PENDING,
     SUCCESS,
-    FAILED,
-    PENDING
-
+    FAILED
 }

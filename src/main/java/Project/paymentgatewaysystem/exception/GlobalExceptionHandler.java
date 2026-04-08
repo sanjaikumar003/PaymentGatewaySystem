@@ -30,6 +30,10 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleDuplicate(DuplicateResourceException ex) {
         return buildResponse(HttpStatus.CONFLICT, ex.getMessage());
     }
+    @ExceptionHandler(InvalidRefundException.class)
+    public ResponseEntity<Map<String, Object>> handleRfund(InvalidRefundException ex) {
+        return buildResponse(HttpStatus.CONFLICT, ex.getMessage());
+    }
     @ExceptionHandler(org.springframework.security.authentication.BadCredentialsException.class)
     public ResponseEntity<Map<String, Object>> handleBadCredentials(
             org.springframework.security.authentication.BadCredentialsException ignored) {

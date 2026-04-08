@@ -54,7 +54,8 @@ public class TransactionServiceImpl implements TransactionService {
 
             if (existing != null) {
                 log.warn("Duplicate transaction request: {}", request.getIdempotencyKey());
-                return toDto(existing);
+
+                 return toDto(existing);
             }
         }
         if (payment.getStatus() == PaymentStatus.SUCCESS) {

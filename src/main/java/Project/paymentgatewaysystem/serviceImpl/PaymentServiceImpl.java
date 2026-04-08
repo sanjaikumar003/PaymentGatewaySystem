@@ -8,14 +8,13 @@ import Project.paymentgatewaysystem.dto.PaymentResponseDto;
 import Project.paymentgatewaysystem.entity.MerchantUser;
 import Project.paymentgatewaysystem.entity.Order;
 import Project.paymentgatewaysystem.entity.Payment;
-import Project.paymentgatewaysystem.exception.DuplicateResourceException;
 import Project.paymentgatewaysystem.exception.InvalidStateException;
 import Project.paymentgatewaysystem.exception.ResourceNotFoundException;
 import Project.paymentgatewaysystem.exception.UnauthorizedException;
 import Project.paymentgatewaysystem.repository.MerchantUserRepository;
 import Project.paymentgatewaysystem.repository.OrderRepository;
 import Project.paymentgatewaysystem.repository.PaymentRepository;
-import Project.paymentgatewaysystem.service.PaymentGatewayService;
+import Project.paymentgatewaysystem.service.PaymentGateway;
 import Project.paymentgatewaysystem.service.PaymentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -29,7 +28,7 @@ public class PaymentServiceImpl implements PaymentService {
     private final PaymentRepository paymentRepository;
     private final OrderRepository orderRepository;
     private final MerchantUserRepository merchantUserRepository;
-    private final PaymentGatewayService gatewayService;
+    private final PaymentGateway gatewayService;
     private MerchantUser getUser(String email) {
         return merchantUserRepository.findByEmail(email.trim().toLowerCase())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
@@ -65,11 +64,13 @@ public class PaymentServiceImpl implements PaymentService {
         payment.setPaymentMethod(request.getPaymentMethod());
         payment.setStatus(PaymentStatus.PENDING);
         payment.setIdempotencyKey(request.getIdempotencyKey());
+        payment.setAmount(order.getAmount());
         payment = paymentRepository.save(payment);
         log.info("Payment created (PENDING) for order {}", order.getOrderId());
         if (request.getPaymentMethod()== PaymentMethod.COD) {
             payment.setStatus(PaymentStatus.SUCCESS);
             order.setStatus(OrderStatus.CONFIRMED);
+            payment=paymentRepository.save(payment);
             log.info("COD order confirmed {}", order.getOrderId());
         }
         return toDto(payment);
