@@ -1,4 +1,4 @@
-package Project.MerchantService;
+package Project.TestService;
 
 import Project.paymentgatewaysystem.constants.MerchantStatus;
 import Project.paymentgatewaysystem.dto.LoginRequestDto;
