@@ -11,7 +11,7 @@ import java.math.BigDecimal;
 
 @Service
 @RequiredArgsConstructor
-public class PaymentGatwayImpl implements PaymentGateway {
+public class PaymentGatewayImpl implements PaymentGateway {
     @Override
     public PaymentStatus process (PaymentMethod method){
         boolean success = Math.random() > 0.2;
