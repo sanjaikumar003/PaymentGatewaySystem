@@ -118,8 +118,7 @@ public class TransactionServiceImpl implements TransactionService {
         }
 
 
-        return transactionRepository.findByPayment_PaymentId(paymentId)
-                .stream()
+        return transactions.stream()
                 .filter(tx -> tx.getPayment().getOrder().getMerchant()
                         .getMerchantId().equals(user.getMerchant().getMerchantId()))
                 .map(this::toDto)
