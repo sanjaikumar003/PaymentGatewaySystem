@@ -130,7 +130,7 @@ public class  RefundServiceImpl implements RefundService {
                 return payment.getAmount();
 
             case "MINOR_DAMAGE":
-                return payment.getAmount().multiply(new BigDecimal("0.10")); // 10%
+                return payment.getAmount().multiply(new BigDecimal("0.10"));
 
             case "CUSTOMER_REQUEST":
                 return payment.getAmount();

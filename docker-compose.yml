@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8083:8083"
+    depends_on:
+      - db
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/paymentgateway
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+
+  db:
+    image: mysql:8
+    container_name: payment-db
+    environment:
+      MYSQL_DATABASE: paymentgateway
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "3307:3306"
